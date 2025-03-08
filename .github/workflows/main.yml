@@ -1,0 +1,54 @@
+name: eks build
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - prod
+
+jobs:
+  build: 
+    runs-on: ubuntu:latest
+
+  steps: 
+  - name: commit 
+  uses: prompt/actions-commit-hasa@v3
+
+  -name: checkout code
+  uses: actions/checkout@v3
+
+  -name: configure AWS credentials
+  users: aws-actions/configure-aws-credentials@v1
+
+  with: 
+    aws_access_key_id: ${{secrets.AWS_ACCESS_key_ID}}
+    aws_secret_access_id: ${{AWS_SECRET_ACCESS_KEY_ID}}
+    aws_region: ${{env.AWS_REGION}}
+
+
+  -name: login to amazon ecr
+  id: login-ecr
+  uses: aws-actions/amazon-ecr-login@v1
+
+  -name: Build, tag and push to amazon ecr
+  #environment variable
+  env:
+    ECR_REGISTRY: ${{steps.login-ecr.output.registry}}
+    IMAGE_TAG: ${{steps.commit.short}}
+
+  run: | 
+    docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/Dockerfile .
+    docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+     
+  -name: Update kube config
+  run: aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
+
+  - name: Deploy to EKS
+  env:
+    ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}        
+    IMAGE_TAG: ${{ steps.commit.outputs.short }}
+  run: |
+    sed -i.bak "s|DOCKER_IMAGE|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" manifests/hello-app-deployment.yaml && \
+    kubectl apply -f manifests/hello-app-deployment.yaml
+    kubectl apply -f manifests/hello-app-service.yaml
