@@ -1,37 +1,22 @@
 provider "aws" {
-  region = "us-east-1"
+  region = var.region
 }
 
-terraform {
-  backend "s3" {
-    bucket         = "terraform-remote-state-01"
-    key            = "terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-lock-table"
-    encrypt        = true
-  }
-}
-
-
-resource "aws_s3_bucket" "my_bucket" {
+resource "aws_s3_bucket" "demo_bucket" {
   bucket = var.bucket_name
 
   tags = {
-    Name        = var.bucket_name
-    Environment = var.environment
+    Environment = "dev"
   }
 }
 
-variable "bucket_name" {
-  description = "Deployment environment"
-  type        = string
-  default     = "my-source-code-bucket-codebuild-01"
+variable "region" {
+  default = "us-east-1"
 }
 
-
-
-variable "environment" {
-  description = "Deployment environment"
-  type        = string
-  default     = "dev"
+variable "bucket_name" {
+  default = "my-demo-tf-bucket-123456"
+}
+output "bucket_name" {
+  value = aws_s3_bucket.demo_bucket.bucket
 }
